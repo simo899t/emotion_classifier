@@ -28,12 +28,13 @@ for acc in freq_bin:
 # >>> print(round(sum(acc_list)/(len(acc_list)),1))
 # 16.7
 
-
+#step 2)
 #Convert input text to a list of tokens for each sentence 
 def whitespace_tokenize(text):
-    raw_text = ' '.join([str(s) for s in text])
-    return raw_text.lower().split()
-
+    raw_text = ' '.join([str(s) for s in text]) #Remove the list and joining into one big string
+    res = raw_text.lower().split() #Tokenization
+    no_dup = list(dict.fromkeys(res)) #Remove duplicates 
+    return  no_dup
 
 # Small example ['How are you doing for today?']
 #small_tx = ['How are you doing for today?']
