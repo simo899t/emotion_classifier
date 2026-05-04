@@ -11,4 +11,16 @@ def whitespace_tokenize(text):
 te_text = ["Hey how how are you you"]
 
 clear_text = whitespace_tokenize(te_text)
+
+
+
+def count(text):
+    tæller = 0
+
+    for toke in text:
+        tæller += 1 
+    return tæller
+
+counted = count(clear_text)
 print(clear_text)
+print(counted)

@@ -8,8 +8,8 @@ ds = load_dataset("dair-ai/emotion", "split")
 
 inputs = ds["train"][:]["text"]
 labels = ds["train"][:]["label"]
-
-
+test = ds["test"][:]["text"]
+validation = ds["validation"][:]["text"]
 
 freq_bin = np.bincount(np.array(labels))
 
@@ -30,11 +30,11 @@ for acc in freq_bin:
 
 #step 2)
 #Convert input text to a list of tokens for each sentence 
-def whitespace_tokenize(text):
-    raw_text = ' '.join([str(s) for s in text]) #Remove the list and joining into one big string
+def whitespace_tokenize(text): #Splittin into tokenz
+    raw_text = ' '.join([str(s) for s in text]) #Remove the list and joining into one big string so one can split on lower case
     res = raw_text.lower().split() #Tokenization
-    no_dup = list(dict.fromkeys(res)) #Remove duplicates 
-    return  no_dup
+    #no_dup = list(dict.fromkeys(res)) #Remove duplicates 
+    return  res
 
 # Small example ['How are you doing for today?']
 #small_tx = ['How are you doing for today?']
@@ -42,5 +42,14 @@ def whitespace_tokenize(text):
 #print(test_1) #['how', 'are', 'you', 'doing', 'for', 'today?']
 
 #Big text tokenization
-Tokenization = whitespace_tokenize(inputs)
-print(Tokenization)
+train_Tokenization = whitespace_tokenize(inputs)
+test_Tokenization = whitespace_tokenize(test)
+validation_Tokenization = whitespace_tokenize(validation)
+print(train_Tokenization)
+#print(Tokenization)
+#Lenght of the Tokenized list 
+#print(Tokenization)
+# 15212 Tokens 
+
+
+#Calculating the mean and variance
