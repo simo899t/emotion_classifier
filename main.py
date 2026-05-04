@@ -9,6 +9,8 @@ ds = load_dataset("dair-ai/emotion", "split")
 inputs = ds["train"][:]["text"]
 labels = ds["train"][:]["label"]
 
+
+
 freq_bin = np.bincount(np.array(labels))
 
 # print(freq_bin)
@@ -25,3 +27,19 @@ for acc in freq_bin:
 # avg accuracy
 # >>> print(round(sum(acc_list)/(len(acc_list)),1))
 # 16.7
+
+
+#Convert input text to a list of tokens for each sentence 
+def whitespace_tokenize(text):
+    raw_text = ' '.join([str(s) for s in text])
+    return raw_text.lower().split()
+
+
+# Small example ['How are you doing for today?']
+#small_tx = ['How are you doing for today?']
+#test_1 = whitespace_tokenize(small_tx)
+#print(test_1) #['how', 'are', 'you', 'doing', 'for', 'today?']
+
+#Big text tokenization
+Tokenization = whitespace_tokenize(inputs)
+print(Tokenization)
