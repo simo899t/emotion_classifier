@@ -104,7 +104,7 @@ class Vocabulary:
     def build_vocabulary(self,raw_input: list[str]):
         tokenized_input = whitespace_tokenize(raw_input)
         self.token2idx['<PAD>'], self.token2idx['<UNC>'] = 0,1
-        self.idx2token[0], self.token2idx[1] = '<PAD>', '<UNC>'
+        self.idx2token[0], self.idx2token[1] = '<PAD>', '<UNC>'
         idx = 2
         for text in tokenized_input:
             for token in text:
@@ -146,7 +146,7 @@ if __name__ == '__main__':
     print(vocab.token2idx)
     print(vocab.idx2token)
 
-    mean, variance, std, range = analyse_text_lengths_words(train_inputs)
+    mean, variance, std, range = analyse_text_lengths_words(test_inputs)
     print(mean, variance, std, range)
 
     # print(vocab.encode())
