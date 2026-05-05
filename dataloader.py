@@ -1,9 +1,15 @@
 from datasets import load_dataset
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 import pandas as pd
 import seaborn as sns
+from matplotlib import colormaps
 sns.set_theme(style="darkgrid")
+
+
+
+
 
 def load_data():
     ds = load_dataset("dair-ai/emotion", "split")
@@ -40,6 +46,8 @@ def analyze_class_distribution(train_labels, val_labels, test_labels, show_plot 
 
     if show_plot:
         emotions = ["Sadness", "Joy", "Love", "Anger", "Fear", "Surprise"]
+        # cmap = plt.get_cmap('plasma')
+        # colors = cmap(np.linspace(0,1,6))
         colors = ['royalblue', 'gold', 'hotpink', 'firebrick', 'purple', 'orange']
         splits = [
             ("Train", freq_train_labels),
@@ -91,6 +99,12 @@ def analyse_text_lengths_words(tokenized_input):
     range = (np.min(text_lengths), np.max(text_lengths)) # (min, max)
     return mean, variance, std_deviation, range
 
+# max length of text (words)
+def _max(tokenized_input):
+    text_lengths = np.array([len(text) for text in tokenized_input])
+    max = np.max(text_lengths)
+    return max
+
 # Plot the length of train, validation and test texts (characters)
 def plot_text_lengths_chars(tokenized_train_inputs, tokenized_val_inputs, tokenized_test_inputs):
     df = pd.DataFrame(
@@ -121,16 +135,53 @@ def plot_text_lengths_words(tokenized_train_inputs, tokenized_val_inputs, tokeni
     g.set_axis_labels("num_words", "num_sentences")
     plt.show()
 
+def build_vocabulary(tokenized_input: list[list[str]]) -> dict[str, int]:
+    vocab: dict[str, int] = {}
+    idx = 2
+    for text in tokenized_input:
+        for token in text:
+            if token not in vocab:
+                vocab[token] = idx
+                idx += 1
+    return vocab
+
+def encode(tokenized_input):
+    vocab = build_vocabulary(tokenized_input)
+    max_len = _max(tokenized_input)
+    num_sent = len(tokenized_input)
+    pad_idx = 0
+    x = torch.full((num_sent, max_len), pad_idx)
+    for i, sent in enumerate(tokenized_input):
+        for j, token in enumerate(sent):
+            x[i,j] = vocab.get(token, 1)
+    return x
+
+def decode(encoded_input, tokenized_input):
+    x = [[]]
+    vocab = build_vocabulary(tokenized_input)
+    for i, sent in enumerate(encoded_input):
+        for j, token in enumerate(sent):
+            x[i,j] = vocab.get(token, 1)
+    return x
 
 if __name__ == '__main__':
     train_inputs, val_inputs, test_inputs, train_labels, val_labels, test_labels = load_data()
-    #analyze_class_distribution(train_labels, val_labels, test_labels)
+    analyze_class_distribution(train_labels, val_labels, test_labels)
     tokenized_train_input, tokenized_validation_input, tokenized_test_input = whitespace_tokenize(train_inputs), whitespace_tokenize(val_inputs), whitespace_tokenize(test_inputs)
-    
-    mean, variance, std, max, min = analyse_text_lengths_words(tokenized_train_input)
-    print(mean, variance, std, max, min)
+    print(tokenized_test_input)
+    mean, variance, std, range = analyse_text_lengths_words(tokenized_train_input)
+    print(mean, variance, std, range)
 
     plot_text_lengths_words(tokenized_train_input, tokenized_validation_input, tokenized_test_input)
 
+    print(tokenized_train_input)
+
+    vocabulary = build_vocabulary(tokenized_train_input)
+    print(vocabulary)
+    
+    encoded_x = encode(tokenized_test_input)
+    print(encoded_x)
+    # decoded_x = decode(encoded_x, tokenized_test_input)
+    # print(decoded_x)
 
 
