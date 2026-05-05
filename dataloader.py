@@ -61,58 +61,11 @@ def analyze_class_distribution(train_labels, val_labels, test_labels, show_plot 
             ax.set_title(f"{title} emotion split")
         plt.show()
 
-
-
-
-
-#step 2)
-
-
-
-# Analyse the length of texts (characters)
-def analyse_text_lengths_chars(tokenized_input):
-    text_lengths = np.array([sum(len(token) for token in text) for text in tokenized_input])
-    length = len(text_lengths)
-    mean = np.sum(text_lengths) / length
-    variance = np.sum(np.square(text_lengths-mean))/length
-    # variance = sum((x - mean) ** 2 for x in text_lengths) / length
-    std_deviation = np.sqrt(variance)
-    max, min = np.max(text_lengths), np.min(text_lengths)
-
-    return mean, variance, std_deviation, max, min
-
-# Analyse the length of texts (tokens)
-def analyse_text_lengths_words(tokenized_input):
-    text_lengths = np.array([len(text) for text in tokenized_input])
-    length = len(text_lengths)
-    mean = np.sum(text_lengths) / length
-    variance = np.sum(np.square(text_lengths-mean))/length
-    # variance = sum((x - mean) ** 2 for x in text_lengths) / length
-    std_deviation = np.sqrt(variance)
-    
-    range = (np.min(text_lengths).item(), np.max(text_lengths).item()) # (min, max)
-    return mean, variance, std_deviation, range
-
 # max length of text (words)
 def _max(tokenized_input):
     text_lengths = np.array([len(text) for text in tokenized_input])
     max = np.max(text_lengths)
     return max
-
-# Plot the length of train, validation and test texts (characters)
-def plot_text_lengths_chars(tokenized_train_inputs, tokenized_val_inputs, tokenized_test_inputs):
-    df = pd.DataFrame(
-        [(sum(len(token) for token in t), "Train") for t in tokenized_train_inputs]
-        + [(sum(len(token) for token in t), "Validation") for t in tokenized_val_inputs]
-        + [(sum(len(token) for token in t), "Test") for t in tokenized_test_inputs],
-        columns=["num_chars", "split"],
-    )
-    g = sns.displot(
-        df, x="num_chars", col="split",
-        binwidth=1, height=3, facet_kws=dict(margin_titles=True),
-    )
-    g.set_axis_labels("num_chars", "num_sentences")
-    plt.show()
 
 # Plot the length of train, validation and test texts (tokens)
 def plot_text_lengths_words(tokenized_train_inputs, tokenized_val_inputs, tokenized_test_inputs):
@@ -129,13 +82,27 @@ def plot_text_lengths_words(tokenized_train_inputs, tokenized_val_inputs, tokeni
     g.set_axis_labels("num_words", "num_sentences")
     plt.show()
 
+def analyse_text_lengths_words(raw_input: list[str]):
+    tokenized_input = whitespace_tokenize(raw_input)
+    text_lengths = np.array([len(text) for text in tokenized_input])
+    length = len(text_lengths)
+    mean = np.sum(text_lengths) / length
+    variance = np.sum(np.square(text_lengths - mean)) / length
+    std_deviation = np.sqrt(variance)
+    length_range = (np.min(text_lengths).item(), np.max(text_lengths).item())
+    return mean, variance, std_deviation, length_range
+
+def whitespace_tokenize(raw_text):
+        tokenized_text = [str(s).split() for s in raw_text]
+        return  tokenized_text
+
 class Vocabulary:
     def __init__(self):
         self.token2idx: dict[str, int] = {}
         self.idx2token: dict[int, str] = {}
 
     def build_vocabulary(self,raw_input: list[str]):
-        tokenized_input = self.whitespace_tokenize(raw_input)
+        tokenized_input = whitespace_tokenize(raw_input)
         self.token2idx['<PAD>'], self.token2idx['<UNC>'] = 0,1
         self.idx2token[0], self.token2idx[1] = '<PAD>', '<UNC>'
         idx = 2
@@ -146,12 +113,8 @@ class Vocabulary:
                     self.idx2token[idx] = token
                     idx += 1
 
-    def whitespace_tokenize(self, text):
-        raw_text = [str(s).split() for s in text]
-        return  raw_text
-
     def encode(self, input):
-        tokenized_input = self.whitespace_tokenize(input)
+        tokenized_input = whitespace_tokenize(input)
         max_len = _max(tokenized_input)
         num_sent = len(tokenized_input)
         pad_idx = 0
@@ -170,24 +133,20 @@ class Vocabulary:
                 if decoded_token:
                     x[-1].append(decoded_token)
         return x
-
+        
     def __len__(self) -> int:
         return len(self.token2idx)
 
 if __name__ == '__main__':
     train_inputs, val_inputs, test_inputs, train_labels, val_labels, test_labels = load_data()
     # analyze_class_distribution(train_labels, val_labels, test_labels)
-    # print(tokenized_test_input)
     
-    
-
-
     vocab = Vocabulary()
     vocab.build_vocabulary(test_inputs)
     print(vocab.token2idx)
     print(vocab.idx2token)
 
-    mean, variance, std, range = analyse_text_lengths_words(vocab.tokenized_input)
+    mean, variance, std, range = analyse_text_lengths_words(train_inputs)
     print(mean, variance, std, range)
 
     # print(vocab.encode())
