@@ -90,7 +90,7 @@ def analyse_text_lengths_words(tokenized_input):
     # variance = sum((x - mean) ** 2 for x in text_lengths) / length
     std_deviation = np.sqrt(variance)
     
-    range = (np.min(text_lengths), np.max(text_lengths)) # (min, max)
+    range = (np.min(text_lengths).item(), np.max(text_lengths).item()) # (min, max)
     return mean, variance, std_deviation, range
 
 # max length of text (words)
@@ -131,17 +131,17 @@ def plot_text_lengths_words(tokenized_train_inputs, tokenized_val_inputs, tokeni
 
 class Vocabulary:
     def __init__(self):
-        self.tokenized_input: list[list[str]]
         self.token2idx: dict[str, int] = {}
         self.idx2token: dict[int, str] = {}
 
     def build_vocabulary(self,raw_input: list[str]):
-        self.tokenized_input = self.whitespace_tokenize(raw_input)
-        vocab: dict[str, int] = {}
+        tokenized_input = self.whitespace_tokenize(raw_input)
+        self.token2idx['<PAD>'], self.token2idx['<UNC>'] = 0,1
+        self.idx2token[0], self.token2idx[1] = '<PAD>', '<UNC>'
         idx = 2
-        for text in self.tokenized_input:
+        for text in tokenized_input:
             for token in text:
-                if token not in vocab:
+                if token not in self.token2idx:
                     self.token2idx[token] = idx
                     self.idx2token[idx] = token
                     idx += 1
@@ -150,12 +150,13 @@ class Vocabulary:
         raw_text = [str(s).split() for s in text]
         return  raw_text
 
-    def encode(self):
-        max_len = _max(self.tokenized_input)
-        num_sent = len(self.tokenized_input)
+    def encode(self, input):
+        tokenized_input = self.whitespace_tokenize(input)
+        max_len = _max(tokenized_input)
+        num_sent = len(tokenized_input)
         pad_idx = 0
         x = torch.full((num_sent, max_len), pad_idx)
-        for i, sent in enumerate(self.tokenized_input):
+        for i, sent in enumerate(tokenized_input):
             for j, token in enumerate(sent):
                 x[i,j] = self.token2idx.get(token, 1)
         return x
@@ -177,15 +178,17 @@ if __name__ == '__main__':
     train_inputs, val_inputs, test_inputs, train_labels, val_labels, test_labels = load_data()
     # analyze_class_distribution(train_labels, val_labels, test_labels)
     # print(tokenized_test_input)
-    # mean, variance, std, range = analyse_text_lengths_words(tokenized_train_input)
-    # print(mean, variance, std, range)
+    
+    
 
-    # plot_text_lengths_words(tokenized_train_input, tokenized_validation_input, tokenized_test_input)
 
     vocab = Vocabulary()
     vocab.build_vocabulary(test_inputs)
     print(vocab.token2idx)
     print(vocab.idx2token)
+
+    mean, variance, std, range = analyse_text_lengths_words(vocab.tokenized_input)
+    print(mean, variance, std, range)
 
     # print(vocab.encode())
     # print(vocab.decode(vocab.encode()))
