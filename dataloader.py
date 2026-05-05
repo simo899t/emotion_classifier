@@ -67,13 +67,7 @@ def analyze_class_distribution(train_labels, val_labels, test_labels, show_plot 
 
 #step 2)
 
-#Convert input text to a list of tokens for each sentence 
-def whitespace_tokenize(text): #Splittin into tokenzzzz
-    raw_text = [str(s).split() for s in text] # split and lower case
-    
-    # res = raw_text.lower().split() #Tokenization
-    #no_dup = list(dict.fromkeys(res)) #Remove duplicates 
-    return  raw_text
+
 
 # Analyse the length of texts (characters)
 def analyse_text_lengths_chars(tokenized_input):
@@ -135,53 +129,65 @@ def plot_text_lengths_words(tokenized_train_inputs, tokenized_val_inputs, tokeni
     g.set_axis_labels("num_words", "num_sentences")
     plt.show()
 
-def build_vocabulary(tokenized_input: list[list[str]]) -> dict[str, int]:
-    vocab: dict[str, int] = {}
-    idx = 2
-    for text in tokenized_input:
-        for token in text:
-            if token not in vocab:
-                vocab[token] = idx
-                idx += 1
-    return vocab
+class Vocabulary:
+    def __init__(self):
+        self.tokenized_input: list[list[str]]
+        self.token2idx: dict[str, int] = {}
+        self.idx2token: dict[int, str] = {}
 
-def encode(tokenized_input):
-    vocab = build_vocabulary(tokenized_input)
-    max_len = _max(tokenized_input)
-    num_sent = len(tokenized_input)
-    pad_idx = 0
-    x = torch.full((num_sent, max_len), pad_idx)
-    for i, sent in enumerate(tokenized_input):
-        for j, token in enumerate(sent):
-            x[i,j] = vocab.get(token, 1)
-    return x
+    def build_vocabulary(self,raw_input: list[str]):
+        self.tokenized_input = self.whitespace_tokenize(raw_input)
+        vocab: dict[str, int] = {}
+        idx = 2
+        for text in self.tokenized_input:
+            for token in text:
+                if token not in vocab:
+                    self.token2idx[token] = idx
+                    self.idx2token[idx] = token
+                    idx += 1
 
-def decode(encoded_input, tokenized_input):
-    x = [[]]
-    vocab = build_vocabulary(tokenized_input)
-    for i, sent in enumerate(encoded_input):
-        for j, token in enumerate(sent):
-            x[i,j] = vocab.get(token, 1)
-    return x
+    def whitespace_tokenize(self, text):
+        raw_text = [str(s).split() for s in text]
+        return  raw_text
+
+    def encode(self):
+        max_len = _max(self.tokenized_input)
+        num_sent = len(self.tokenized_input)
+        pad_idx = 0
+        x = torch.full((num_sent, max_len), pad_idx)
+        for i, sent in enumerate(self.tokenized_input):
+            for j, token in enumerate(sent):
+                x[i,j] = self.token2idx.get(token, 1)
+        return x
+
+    def decode(self, encoded_input):
+        x = []
+        for sent in encoded_input:
+            x.append([])
+            for encoded_token in sent:
+                decoded_token = self.idx2token.get(encoded_token.item())
+                if decoded_token:
+                    x[-1].append(decoded_token)
+        return x
+
+    def __len__(self) -> int:
+        return len(self.token2idx)
 
 if __name__ == '__main__':
     train_inputs, val_inputs, test_inputs, train_labels, val_labels, test_labels = load_data()
-    analyze_class_distribution(train_labels, val_labels, test_labels)
-    tokenized_train_input, tokenized_validation_input, tokenized_test_input = whitespace_tokenize(train_inputs), whitespace_tokenize(val_inputs), whitespace_tokenize(test_inputs)
-    print(tokenized_test_input)
-    mean, variance, std, range = analyse_text_lengths_words(tokenized_train_input)
-    print(mean, variance, std, range)
+    # analyze_class_distribution(train_labels, val_labels, test_labels)
+    # print(tokenized_test_input)
+    # mean, variance, std, range = analyse_text_lengths_words(tokenized_train_input)
+    # print(mean, variance, std, range)
 
-    plot_text_lengths_words(tokenized_train_input, tokenized_validation_input, tokenized_test_input)
+    # plot_text_lengths_words(tokenized_train_input, tokenized_validation_input, tokenized_test_input)
 
-    print(tokenized_train_input)
+    vocab = Vocabulary()
+    vocab.build_vocabulary(test_inputs)
+    print(vocab.token2idx)
+    print(vocab.idx2token)
 
-    vocabulary = build_vocabulary(tokenized_train_input)
-    print(vocabulary)
-    
-    encoded_x = encode(tokenized_test_input)
-    print(encoded_x)
-    # decoded_x = decode(encoded_x, tokenized_test_input)
-    # print(decoded_x)
+    # print(vocab.encode())
+    # print(vocab.decode(vocab.encode()))
 
 

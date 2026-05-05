@@ -1,26 +1,13 @@
+d = {'1': 3, '2': 4}
+rev_dict = {}
+for key, idx in d.items():
+    rev_dict[idx] = key
 
 
-def whitespace_tokenize(text):
-    raw_text = ' '.join([str(s) for s in text]) #Remove the list and joining into one big string
-    res = raw_text.lower().split() #Tokenization
-    no_dup = list(dict.fromkeys(res)) #Remove duplicates 
-    return  no_dup
+print(d)
 
+a = d.get('3',0)
 
+print(rev_dict)
 
-te_text = ["Hey how how are you you"]
-
-clear_text = whitespace_tokenize(te_text)
-
-
-
-def count(text):
-    tæller = 0
-
-    for toke in text:
-        tæller += 1 
-    return tæller
-
-counted = count(clear_text)
-print(clear_text)
-print(counted)
+print(a)
