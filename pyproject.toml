@@ -6,4 +6,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
     "datasets>=4.8.5",
+    "matplotlib>=3.10.9",
+    "seaborn>=0.13.2",
+    "torch>=2.11.0",
 ]
