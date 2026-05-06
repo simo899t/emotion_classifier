@@ -139,11 +139,11 @@ class Vocabulary:
 
 if __name__ == '__main__':
     train_inputs, val_inputs, test_inputs, train_labels, val_labels, test_labels = load_data()
-    analyze_class_distribution(train_labels, val_labels, test_labels)
+    #analyze_class_distribution(train_labels, val_labels, test_labels)
     
-    # vocab = Vocabulary()
-    # vocab.build_vocabulary(test_inputs)
-    # print(vocab.token2idx)
+    vocab = Vocabulary()
+    vocab.build_vocabulary(train_inputs)
+    print(vocab.token2idx)
     # print(vocab.idx2token)
 
     # mean, variance, std, range = analyse_text_lengths_words(test_inputs)
