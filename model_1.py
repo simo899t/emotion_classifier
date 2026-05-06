@@ -11,20 +11,6 @@ def build_embedding_layer(vocab_size: int,
                            pad_idx: int = 0) -> nn.Embedding:
     return nn.Embedding(vocab_size, embed_dim, padding_idx=pad_idx)
 
-def masked_mean_pool(embeddings: torch.Tensor,
-                     attention_mask: torch.Tensor) -> torch.Tensor:
-    # (B × T × 1) → (B × T × D)
-    mask_expanded = attention_mask.unsqueeze(-1).float()
-
-    # Zero out padding positions, then sum
-    sum_emb = (embeddings * mask_expanded).sum(dim=1)        # (B, D)
-
-    # mean pooling on the masked tensor
-    token_counts = attention_mask.sum(dim=1, keepdim=True).float()
-    masked_mean_pool = sum_emb / token_counts.clamp(min=1e-9)
-
-    return masked_mean_pool
-
 class TextRNN(nn.Module):
     """
     Sequential text classifier built around a single-layer RNN.
@@ -54,6 +40,7 @@ class TextRNN(nn.Module):
                  vocab_size: int,
                  embed_dim: int,
                  hidden_dim: int,
+                 num_layers: int,
                  num_classes: int,
                  pad_idx: int = 0):
         super().__init__()
@@ -61,7 +48,7 @@ class TextRNN(nn.Module):
         self.embedding = nn.Embedding(vocab_size, embed_dim,
                                       padding_idx=pad_idx)
         # batch_first=True  →  input/output tensors are (B, T, *)
-        self.rnn       = nn.RNN(embed_dim, hidden_dim, batch_first=True)
+        self.rnn       = nn.RNN(embed_dim, hidden_dim, num_layers, batch_first=True)
         self.fc        = nn.Linear(hidden_dim, num_classes)
 
     def forward(self,
@@ -77,32 +64,30 @@ class TextRNN(nn.Module):
         -------
         FloatTensor (B, num_classes) — raw class scores
         """
-        # 1. Token index → dense vector   (B, T) → (B, T, D)
+        # encoded_token * v. So that (B, T) → (B, T, D)
         emb = self.embedding(input_ids)
 
-        # 2. Pack: merge variable-length sequences into a compact format.
-        #    enforce_sorted=False lets PyTorch handle the internal length-sort
-        #    so we don't have to pre-sort the batch ourselves.
-        packed = pack_padded_sequence(emb, lengths.cpu(),
+        # use lengths of each sentence, to ignore zeroes when training
+        packed = pack_padded_sequence(emb, lengths,
                                       batch_first=True,
                                       enforce_sorted=False)
 
-        # 3. Run the RNN.
-        #    _output  : packed representation of all hidden states (not used here)
-        #    hidden   : final hidden state, shape (num_layers, B, H) = (1, B, H)
-        _output, hidden = self.rnn(packed)
-
+        # ignore all packed hidden states, we only care about the last hidden layer
+        _, hidden = self.rnn(packed)
+        
         # 4. (Optional) unpack output if you need all hidden states:
         #    output, _ = pad_packed_sequence(_output, batch_first=True)
         #    — not needed when using only the final hidden state.
 
-        # 5. Drop the num_layers dimension → (B, H)
-        hidden = hidden.squeeze(0)
+        # 5. Take the last layer's hidden state: (num_layers, B, H) → (B, H)
+         
+        hidden = hidden[-1]
+         
 
         # 6. Linear classifier  (B, H) → (B, num_classes)
         return self.fc(hidden)
     
-def train(model, padded_batch, lengths, targets, epochs=60, lr=1e-3, use_lengths=False, log_interval = 10):
+def train(model, padded_batch, lengths, targets, epochs=60, lr=1e-3, use_lengths=True, log_interval = 10):
     """
     Minimal training loop for demonstration purposes.
 
@@ -111,10 +96,10 @@ def train(model, padded_batch, lengths, targets, epochs=60, lr=1e-3, use_lengths
 
     Parameters
     ----------
-    model        : TextMLP or TextRNN
-    padded_batch : LongTensor (B, T)
-    lengths      : LongTensor (B,) — only used by TextRNN
-    targets      : LongTensor (B,) — class labels
+    model        : TextRNN
+    padded_batch : LongTensor (B × T)
+    lengths      : LongTensor (B × 1)
+    targets      : LongTensor (B × 1) (0, 1, 2, 3, 4, 5)
     use_lengths  : set True for TextRNN (passes lengths to forward)
     """
     optimizer = optim.Adam(model.parameters(), lr=lr)
@@ -156,7 +141,11 @@ if __name__ == '__main__':
     #print(f"\nPadded batch shape : {encoded_train_corpus.shape}")
     #print(encoded_train_corpus)
 
-    EMBED_DIM = 16
+    EMBED_DIM = 64
+    HIDDEN_DIM = 64
+    NUM_LAYERS = 2
+    LEARNING_RATE = 1e-2
+    EPOCHS = 100
 
     embedding_layer = build_embedding_layer(len(vocab), EMBED_DIM)
 
@@ -165,25 +154,16 @@ if __name__ == '__main__':
     print(f"<PAD> embedding all-zero: {pad_emb.abs().sum().item() == 0.0}")
     
     # Embed the whole padded batch
-    embedded = embedding_layer(encoded_train_corpus)   # (B, T, D)
+    embedded = embedding_layer(encoded_train_corpus)   # (B × T × D)
     print(f"Embedded batch shape    : {embedded.shape}  (B=6, T=6, D={EMBED_DIM})")
 
-    attention_mask = (encoded_train_corpus != 0)   # True wherever token is not <PAD>
-    pooled = masked_mean_pool(embedded, attention_mask)
-    print("\n" + "=" * 60)
-    print("PART 4 — MLP with Mean Pooling")
-    print("=" * 60)
-    print(f"Pooled tensor shape: {pooled.shape}  (B=6, D={EMBED_DIM})")
-
     # Compute real sequence lengths (count of non-PAD tokens per row)
-    lengths = (encoded_train_corpus != 0).sum(dim=1)   # LongTensor (B,)
+    lengths = (encoded_train_corpus != 0).sum(dim=1)   # LongTensor (B × 1)
 
-    rnn = TextRNN(vocab_size=len(vocab), embed_dim=EMBED_DIM,
-                  hidden_dim=32, num_classes=2)
-    rnn_logits = rnn(encoded_train_corpus, lengths)
+    targets = torch.tensor(train_labels)
+    num_classes = 6      # works regardless of label values
+    
+    print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
+    rnn_model = TextRNN(len(vocab), EMBED_DIM, hidden_dim=32, num_layers=NUM_LAYERS, num_classes=num_classes)
+    train(rnn_model, encoded_train_corpus, lengths, targets, use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
 
-    print("\n" + "=" * 60)
-    print("PART 5 — RNN Classifier")
-    print("=" * 60)
-    print(f"Sequence lengths       : {lengths.tolist()}")
-    print(f"TextRNN output shape   : {rnn_logits.shape}  (B=6, num_classes=2)")

@@ -41,7 +41,7 @@ def analyze_class_distribution(train_labels, val_labels, test_labels, show_plot 
     dom_classifier_test = max(freq_test_labels)/total_test
 
     print(f"Split representation: Train: {total_train}, Validation: {total_val}, Test: {total_test}")
-    print(f"Split representation in pct%: Train: {freq_train_labels}, Validation: {freq_val_labels}, Test: {freq_test_labels}")
+    print(f"Split representation in pct%: Train: {freq_train_labels/total_train}, Validation: {freq_val_labels/total_val}, Test: {freq_test_labels/total_test}")
     print(f"Accuracy of a dominance classifier on each split: Train: {dom_classifier_train}, Validation: {dom_classifier_val}, Test: {dom_classifier_test}")
 
     if show_plot:
@@ -139,15 +139,15 @@ class Vocabulary:
 
 if __name__ == '__main__':
     train_inputs, val_inputs, test_inputs, train_labels, val_labels, test_labels = load_data()
-    # analyze_class_distribution(train_labels, val_labels, test_labels)
+    analyze_class_distribution(train_labels, val_labels, test_labels)
     
-    vocab = Vocabulary()
-    vocab.build_vocabulary(test_inputs)
-    print(vocab.token2idx)
-    print(vocab.idx2token)
+    # vocab = Vocabulary()
+    # vocab.build_vocabulary(test_inputs)
+    # print(vocab.token2idx)
+    # print(vocab.idx2token)
 
-    mean, variance, std, range = analyse_text_lengths_words(test_inputs)
-    print(mean, variance, std, range)
+    # mean, variance, std, range = analyse_text_lengths_words(test_inputs)
+    # print(mean, variance, std, range)
 
     # print(vocab.encode())
     # print(vocab.decode(vocab.encode()))
