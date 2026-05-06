@@ -3,6 +3,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.nn.utils.rnn import pack_padded_sequence
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 # Embedding layer for the tokens
@@ -104,6 +106,8 @@ def train(model, padded_batch, lengths, targets, epochs=60, lr=1e-3, use_lengths
     """
     optimizer = optim.Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
+    plot_data = torch.zeros(3, epochs)
+
 
     for epoch in range(1, epochs + 1):
         model.train()
@@ -120,6 +124,15 @@ def train(model, padded_batch, lengths, targets, epochs=60, lr=1e-3, use_lengths
             preds = logits.argmax(dim=1)
             acc   = (preds == targets).float().mean().item()
             print(f"  Epoch {epoch:3d} | loss {loss.item():.4f} | acc {acc:.2f}")
+            plot_data[:, epoch-1] = torch.tensor([epoch, loss, acc])
+
+    return plot_data
+
+def get_model(vocab, embed_dim, hidden_dim, num_layers):
+    num_classes = 6
+    rnn_model = TextRNN(len(vocab), embed_dim=embed_dim, hidden_dim=hidden_dim, num_layers=num_layers, num_classes=num_classes)
+    return rnn_model
+
 
 if __name__ == '__main__':
     train_inputs, val_inputs, test_inputs, train_labels, val_labels, test_labels = dl.load_data()
@@ -145,7 +158,7 @@ if __name__ == '__main__':
     HIDDEN_DIM = 64
     NUM_LAYERS = 2
     LEARNING_RATE = 1e-2
-    EPOCHS = 100
+    EPOCHS = 200
 
     embedding_layer = build_embedding_layer(len(vocab), EMBED_DIM)
 
@@ -165,5 +178,6 @@ if __name__ == '__main__':
     
     print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
     rnn_model = TextRNN(len(vocab), EMBED_DIM, hidden_dim=32, num_layers=NUM_LAYERS, num_classes=num_classes)
-    train(rnn_model, encoded_train_corpus, lengths, targets, use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
+    data = train(rnn_model, encoded_train_corpus, lengths, targets, use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
+    
 
