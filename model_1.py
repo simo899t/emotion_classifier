@@ -89,42 +89,53 @@ class TextRNN(nn.Module):
         # 6. Linear classifier  (B, H) → (B, num_classes)
         return self.fc(hidden)
     
-def train(model, padded_batch, lengths, targets, epochs=60, lr=1e-3, use_lengths=True, log_interval = 10):
+def train(model, padded_batch, lengths, targets,
+          val_ids=None, val_lengths=None, val_targets=None,
+          epochs=60, lr=1e-3, use_lengths=True, log_interval=10):
     """
     Minimal training loop for demonstration purposes.
 
-    Uses Adam + CrossEntropyLoss on the full batch (no train/val split).
-    Reports loss and accuracy every log_interval epochs.
+    Uses Adam + CrossEntropyLoss on the full batch.
+    Reports train loss/acc and (optionally) val acc every log_interval epochs.
 
     Parameters
     ----------
     model        : TextRNN
     padded_batch : LongTensor (B × T)
-    lengths      : LongTensor (B × 1)
-    targets      : LongTensor (B × 1) (0, 1, 2, 3, 4, 5)
+    lengths      : LongTensor (B,)
+    targets      : LongTensor (B,) (0..5)
+    val_ids      : LongTensor (Bv × Tv) or None
+    val_lengths  : LongTensor (Bv,)    or None
+    val_targets  : LongTensor (Bv,)    or None
     use_lengths  : set True for TextRNN (passes lengths to forward)
     """
     optimizer = optim.Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
-    plot_data = torch.zeros(3, epochs)
-
+    plot_data = torch.zeros(4, epochs)
+    has_val = val_ids is not None and val_targets is not None
 
     for epoch in range(1, epochs + 1):
         model.train()
         optimizer.zero_grad()
 
-        # Forward pass
         logits = model(padded_batch, lengths) if use_lengths else model(padded_batch)
-
         loss = criterion(logits, targets)
         loss.backward()
         optimizer.step()
 
         if epoch % log_interval == 0:
-            preds = logits.argmax(dim=1)
-            acc   = (preds == targets).float().mean().item()
-            print(f"  Epoch {epoch:3d} | loss {loss.item():.4f} | acc {acc:.2f}")
-            plot_data[:, epoch-1] = torch.tensor([epoch, loss, acc])
+            train_acc = (logits.argmax(dim=1) == targets).float().mean().item()
+
+            val_acc = float("nan")
+            if has_val:
+                model.eval()
+                with torch.no_grad():
+                    val_logits = model(val_ids, val_lengths) if use_lengths else model(val_ids)
+                    val_acc = (val_logits.argmax(dim=1) == val_targets).float().mean().item()
+
+            print(f"  Epoch {epoch:3d} | loss {loss.item():.4f} | "
+                  f"train acc {train_acc:.2f} | val acc {val_acc:.2f}")
+            plot_data[:, epoch-1] = torch.tensor([epoch, loss.item(), train_acc, val_acc])
 
     return plot_data
 
@@ -133,6 +144,26 @@ def get_model(vocab, embed_dim, hidden_dim, num_layers):
     rnn_model = TextRNN(len(vocab), embed_dim=embed_dim, hidden_dim=hidden_dim, num_layers=num_layers, num_classes=num_classes)
     return rnn_model
 
+def predict(model, sentence: str, vocab: dl.Vocabulary,
+            use_lengths: bool = False) -> str:
+    """
+    Run a single sentence through a trained model and return the predicted label.
+
+    Steps:
+      1. Tokenise and encode the sentence.
+      2. Add a batch dimension (B=1).
+      3. Forward pass → argmax → human-readable label.
+    """
+    labels = ["sadness", "joy", "love", "anger", "fear", "surprise"]
+    model.eval()
+    with torch.no_grad():
+        ids     = vocab.encode([sentence])
+        lengths = torch.tensor([(ids != 0).sum().item()])
+
+        logits  = model(ids, lengths)
+        pred    = logits.argmax(dim=1).item()
+
+    return labels[pred]
 
 if __name__ == '__main__':
     train_inputs, val_inputs, test_inputs, train_labels, val_labels, test_labels = dl.load_data()
