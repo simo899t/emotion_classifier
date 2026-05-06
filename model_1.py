@@ -128,6 +128,12 @@ def train(model, padded_batch, lengths, targets, epochs=60, lr=1e-3, use_lengths
 
     return plot_data
 
+def get_model(vocab, embed_dim, hidden_dim, num_layers):
+    num_classes = 6
+    rnn_model = TextRNN(len(vocab), embed_dim=embed_dim, hidden_dim=hidden_dim, num_layers=num_layers, num_classes=num_classes)
+    return rnn_model
+
+
 if __name__ == '__main__':
     train_inputs, val_inputs, test_inputs, train_labels, val_labels, test_labels = dl.load_data()
     vocab = dl.Vocabulary()
