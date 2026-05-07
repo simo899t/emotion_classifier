@@ -163,7 +163,7 @@ if __name__ == '__main__':
     #EMED_DIM = D_models
     EMBED_DIM = 64
     NUM_LAYERS = 4
-    LEARNING_RATE = 1e-4
+    LEARNING_RATE = 1e-2
     EPOCHS = 10
     NUM_CLASS = 6
     D_MODEL = 64
