@@ -13,7 +13,7 @@ def build_embedding_layer(vocab_size: int,
                            pad_idx: int = 0) -> nn.Embedding:
     return nn.Embedding(vocab_size, embed_dim, padding_idx=pad_idx)
 
-class TextRNN(nn.Module):
+class TextLSTM(nn.Module):
     """
     Sequential text classifier built around a single-layer RNN.
 
@@ -50,7 +50,7 @@ class TextRNN(nn.Module):
         self.embedding = nn.Embedding(vocab_size, embed_dim,
                                       padding_idx=pad_idx)
         # batch_first=True  →  input/output tensors are (B, T, *)
-        self.rnn       = nn.RNN(embed_dim, hidden_dim, num_layers, batch_first=True)
+        self.rnn       = nn.LSTM(embed_dim, hidden_dim, num_layers, batch_first=True)
         self.fc        = nn.Linear(hidden_dim, num_classes)
 
     def forward(self,
@@ -76,15 +76,9 @@ class TextRNN(nn.Module):
 
         # ignore all packed hidden states, we only care about the last hidden layer
         _, hidden = self.rnn(packed)
-        
-        # 4. (Optional) unpack output if you need all hidden states:
-        #    output, _ = pad_packed_sequence(_output, batch_first=True)
-        #    — not needed when using only the final hidden state.
 
         # 5. Take the last layer's hidden state: (num_layers, B, H) → (B, H)
-         
         hidden = hidden[-1]
-         
 
         # 6. Linear classifier  (B, H) → (B, num_classes)
         return self.fc(hidden)
@@ -141,7 +135,7 @@ def train(model, padded_batch, lengths, targets,
 
 def get_model(vocab, embed_dim, hidden_dim, num_layers):
     num_classes = 6
-    rnn_model = TextRNN(len(vocab), embed_dim=embed_dim, hidden_dim=hidden_dim, num_layers=num_layers, num_classes=num_classes)
+    rnn_model = TextLSTM(len(vocab), embed_dim=embed_dim, hidden_dim=hidden_dim, num_layers=num_layers, num_classes=num_classes)
     return rnn_model
 
 def predict(model, sentence: str, vocab: dl.Vocabulary,
@@ -168,7 +162,7 @@ def predict(model, sentence: str, vocab: dl.Vocabulary,
 if __name__ == '__main__':
     train_inputs, val_inputs, test_inputs, train_labels, val_labels, test_labels = dl.load_data()
     vocab = dl.Vocabulary()
-    vocab.build_vocabulary(test_inputs)
+    vocab.build_vocabulary(train_inputs)
     encoded_train_corpus = vocab.encode(train_inputs)
 
     #print("\n" + "=" * 60)
@@ -208,7 +202,7 @@ if __name__ == '__main__':
     num_classes = 6      # works regardless of label values
     
     print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
-    rnn_model = TextRNN(len(vocab), EMBED_DIM, hidden_dim=32, num_layers=NUM_LAYERS, num_classes=num_classes)
+    rnn_model = TextLSTM(len(vocab), EMBED_DIM, hidden_dim=32, num_layers=NUM_LAYERS, num_classes=num_classes)
     data = train(rnn_model, encoded_train_corpus, lengths, targets, use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
     
 

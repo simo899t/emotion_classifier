@@ -21,7 +21,16 @@ def load_data():
     test_labels = ds["test"][:]["label"]    
     return train_inputs, val_inputs, test_inputs, train_labels, validation_labels, test_labels
     # sadness (0), joy (1), love (2), anger (3), fear (4), surprise (5)
-    
+
+def check_data_alignment(train_inputs, val_inputs, test_inputs, train_labels, val_labels, test_labels):
+    assert len(train_inputs) == len(train_labels), f"train: {len(train_inputs)} vs {len(train_labels)}"
+    assert len(val_inputs) == len(val_labels), f"val: {len(val_inputs)} vs {len(val_labels)}"
+    assert len(test_inputs) == len(test_labels), f"test: {len(test_inputs)} vs {len(test_labels)}"
+    for name, xs in [("train_inputs", train_inputs), ("val_inputs", val_inputs), ("test_inputs", test_inputs),
+                     ("train_labels", train_labels), ("val_labels", val_labels), ("test_labels", test_labels)]:
+        assert not any(x is None for x in xs), f"{name} contains None"
+    print(f"OK — train: {len(train_inputs)}, val: {len(val_inputs)}, test: {len(test_inputs)}")
+
 # step 1
 def analyze_class_distribution(train_labels, val_labels, test_labels, show_plot = True):
     freq_train_labels = np.bincount(np.array(train_labels))
@@ -68,7 +77,11 @@ def _max(tokenized_input):
     return max
 
 # Plot the length of train, validation and test texts (tokens)
-def plot_text_lengths_words(tokenized_train_inputs, tokenized_val_inputs, tokenized_test_inputs):
+def plot_text_lengths_words(train_inputs, val_inputs, test_inputs):
+    tokenized_train_inputs = whitespace_tokenize(train_inputs)
+    tokenized_val_inputs = whitespace_tokenize(val_inputs)
+    tokenized_test_inputs = whitespace_tokenize(test_inputs)
+
     df = pd.DataFrame(
         [(len(t), "Train") for t in tokenized_train_inputs]
         + [(len(t), "Validation") for t in tokenized_val_inputs]
@@ -140,16 +153,18 @@ class Vocabulary:
 if __name__ == '__main__':
     train_inputs, val_inputs, test_inputs, train_labels, val_labels, test_labels = load_data()
     #analyze_class_distribution(train_labels, val_labels, test_labels)
-    
+    check_data_alignment(train_inputs, val_inputs, test_inputs, train_labels, val_labels, test_labels)
     vocab = Vocabulary()
     vocab.build_vocabulary(train_inputs)
     print(vocab.token2idx)
-    # print(vocab.idx2token)
+    print(vocab.idx2token)
 
-    # mean, variance, std, range = analyse_text_lengths_words(test_inputs)
-    # print(mean, variance, std, range)
+    #plot_text_lengths_words(train_inputs,val_inputs,test_inputs)
 
-    # print(vocab.encode())
-    # print(vocab.decode(vocab.encode()))
+    mean, variance, std, range = analyse_text_lengths_words(test_inputs)
+    print(mean, variance, std, range)
+
+    # print(vocab.encode(train_inputs))
+    # print(vocab.decode(vocab.encode(train_inputs)))
 
 

@@ -1,18 +1,10 @@
 import dataloader as dl
-import model_1 as m1
+import rnn
+import lstm
 import model_2 as m2
-import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
 import torch
-
-sns.set_theme(style="darkgrid")
-
-def _to_df(history: torch.Tensor, name: str) -> pd.DataFrame:
-    df = pd.DataFrame(history.numpy(), columns=["epoch", "loss", "accuracy"])
-    df["model"] = name
-    return df
-
 
 def plot(T1, T2):
     f, (ax1, ax2) = plt.subplots(1, 2) 
@@ -25,7 +17,6 @@ def plot(T1, T2):
     ax2.plot(T2[0], T2[2], label='T2')
     ax2.set_title('Acc')
     ax2.legend()
-
 
     plt.tight_layout()
     plt.show()
@@ -42,29 +33,57 @@ if __name__ == "__main__":
     val_lengths = (encoded_val != 0).sum(dim=1)
     val_targets = torch.tensor(val_labels)
 
-    EMBED_DIM = 256
+    EMBED_DIM = 64
     HIDDEN_DIM = 64
     NUM_LAYERS = 1
-    LEARNING_RATE = 1e-2
-    EPOCHS = 2
+    LEARNING_RATE = 1e-3
+    EPOCHS = 20
 
-    model_1 = m1.get_model(vocab, EMBED_DIM, HIDDEN_DIM, NUM_LAYERS)
+    rnn_model = rnn.get_model(vocab, EMBED_DIM, HIDDEN_DIM, NUM_LAYERS)
     print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
-    T1 = m1.train(model_1, encoded_train_corpus, train_lengths, train_targets,
+    T1 = rnn.train(rnn_model, encoded_train_corpus, train_lengths, train_targets,
                   val_ids=encoded_val, val_lengths=val_lengths, val_targets=val_targets,
                   use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
 
-    model_2 = m1.get_model(vocab, EMBED_DIM, HIDDEN_DIM,NUM_LAYERS)
-    print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
-    T2 = m1.train(model_1, encoded_train_corpus, lengths, targets, use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
+    # lstm_model = lstm.get_model(vocab, EMBED_DIM, HIDDEN_DIM,NUM_LAYERS)
+    # print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
+    # T2 = lstm.train(lstm_model, encoded_train_corpus, train_lengths, train_targets,
+    #               val_ids=encoded_val, val_lengths=val_lengths, val_targets=val_targets,
+    #               use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
+    # 
+    # lstm_model = lstm.get_model(vocab, EMBED_DIM, HIDDEN_DIM,NUM_LAYERS)
+    # print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
+    # T3 = lstm.train(lstm_model, encoded_train_corpus, train_lengths, train_targets,
+    #               val_ids=encoded_val, val_lengths=val_lengths, val_targets=val_targets,
+    #               use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
 
-    #plot(T1, T2)
+    # plot(T2, T3)
+
+    order_test_pairs = [
+    # Pair A: same emotion words, opposite endings
+    "i felt joy then i felt anger",      # → anger expected
+    "i felt anger then i felt joy",      # → joy expected
+
+    # Pair B: feeling shifted to opposite
+    "i was happy but now i feel sad",    # → sadness expected
+    "i was sad but now i feel happy",    # → joy expected
+
+    # Pair C: emotion at start vs end
+    "scared at first then surprised",    # → surprise expected
+    "surprised at first then scared",    # → fear expected
+
+    # Pair D: simple ordering
+    "today was full of fear and joy",    # ambiguous
+    "today was full of joy and fear",    # ambiguous
+    # both should give DIFFERENT answers if order matters
+    ]
+    test = ["i feel so happy today",
+                 "i am terrified of what comes next",
+                 "Nikolaj is the ugliest most stupid and annoying person to walk this earth"]
 
     print(f"\n--- Testing TextRNN ---")
-    for sent in ["i feel so happy today",
-                 "i am terrified of what comes next",
-                 "Nikolaj is the ugliest most stupid and annoying person to walk this earth"]:
-        rnn_pred = m1.predict(model_1, sent, vocab, use_lengths=False)
+    for sent in order_test_pairs:
+        rnn_pred = rnn.predict(rnn_model, sent, vocab, use_lengths=False)
         print(f"  \"{sent}\" → {rnn_pred}")
 
 
