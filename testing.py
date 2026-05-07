@@ -13,8 +13,8 @@ def plot(T1, T2):
     ax1.set_title('Loss')
     ax1.legend()
 
-    ax2.plot(T2[0], T1[2], label='T1')
-    ax2.plot(T2[0], T2[2], label='T2')
+    ax2.plot(T2[0], T1[3], label='T1')
+    ax2.plot(T2[0], T2[3], label='T2')
     ax2.set_title('Acc')
     ax2.legend()
 
@@ -33,31 +33,32 @@ if __name__ == "__main__":
     val_lengths = (encoded_val != 0).sum(dim=1)
     val_targets = torch.tensor(val_labels)
 
-    EMBED_DIM = 64
+    EMBED_DIM = 128
     HIDDEN_DIM = 64
-    NUM_LAYERS = 1
+    NUM_LAYERS = 2
     LEARNING_RATE = 1e-3
     EPOCHS = 20
+    BATCH_SIZE = 128
 
     rnn_model = rnn.get_model(vocab, EMBED_DIM, HIDDEN_DIM, NUM_LAYERS)
     print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
     T1 = rnn.train(rnn_model, encoded_train_corpus, train_lengths, train_targets,
                   val_ids=encoded_val, val_lengths=val_lengths, val_targets=val_targets,
-                  use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
+                  use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, batch_size=BATCH_SIZE, log_interval=1)
 
-    # lstm_model = lstm.get_model(vocab, EMBED_DIM, HIDDEN_DIM,NUM_LAYERS)
-    # print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
-    # T2 = lstm.train(lstm_model, encoded_train_corpus, train_lengths, train_targets,
-    #               val_ids=encoded_val, val_lengths=val_lengths, val_targets=val_targets,
-    #               use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
-    # 
+    lstm_model = lstm.get_model(vocab, EMBED_DIM, HIDDEN_DIM,NUM_LAYERS)
+    print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
+    T2 = lstm.train(lstm_model, encoded_train_corpus, train_lengths, train_targets,
+                  val_ids=encoded_val, val_lengths=val_lengths, val_targets=val_targets,
+                  use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, batch_size=BATCH_SIZE, log_interval=1)
+    
     # lstm_model = lstm.get_model(vocab, EMBED_DIM, HIDDEN_DIM,NUM_LAYERS)
     # print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
     # T3 = lstm.train(lstm_model, encoded_train_corpus, train_lengths, train_targets,
     #               val_ids=encoded_val, val_lengths=val_lengths, val_targets=val_targets,
     #               use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
 
-    # plot(T2, T3)
+    plot(T1, T2)
 
     order_test_pairs = [
     # Pair A: same emotion words, opposite endings

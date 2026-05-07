@@ -2,10 +2,10 @@ import dataloader as dl
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.nn.utils.rnn import pack_padded_sequence
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from torch.utils.data import TensorDataset, DataLoader
 import matplotlib.pyplot as plt
 import seaborn as sns
-
 
 # Embedding layer for the tokens
 def build_embedding_layer(vocab_size: int,
@@ -13,29 +13,28 @@ def build_embedding_layer(vocab_size: int,
                            pad_idx: int = 0) -> nn.Embedding:
     return nn.Embedding(vocab_size, embed_dim, padding_idx=pad_idx)
 
+# Masked mean pooling
+def masked_mean_pool(embeddings: torch.Tensor,
+                     attention_mask: torch.Tensor) -> torch.Tensor:
+    """
+    Applies a mask (inputs != 0) to embeddings and mean pools 
+    """
+    # unsqueeze to a higher dimension for embedding vectors
+    mask_expanded = attention_mask.unsqueeze(-1).float()
+
+    # sum each row of encoded tokens and average them out with num tokens from the mask
+    sum_emb = (embeddings * mask_expanded).sum(dim=1)        # (B, D)
+    token_counts = attention_mask.sum(dim=1, keepdim=True).float()
+    masked_mean_pool = sum_emb / token_counts.clamp(min=1e-9) 
+    return masked_mean_pool
+
 class TextLSTM(nn.Module):
     """
-    Sequential text classifier built around a single-layer RNN.
-
-    Architecture:
-      Embedding (frozen PAD)
-        → pack_padded_sequence      [skip PAD positions during recurrence]
-        → RNN
-        → pad_packed_sequence       [restore (B, T, H) layout]
-        → final hidden state h_T    [shape (B, H)]
-        → Linear(hidden_dim, num_classes)
-        → raw logits
-
-    Why use the final hidden state instead of mean pooling?
-    -------------------------------------------------------
-    The RNN's hidden state is updated at every real token, so h_T is a
-    recurrent summary that is sensitive to word order and context.
-
-    Why pack/unpack?
-    ----------------
-    pack_padded_sequence tells the RNN exactly how many real time steps each
-    example has, so it never feeds <PAD> positions into the recurrence. This
-    avoids contaminating the final state for shorter sequences.
+    TextRNN with the following architecture
+    -----------
+    1. Embedding
+    2. Pack padding
+    3. 
     """
 
     def __init__(self,
@@ -50,42 +49,37 @@ class TextLSTM(nn.Module):
         self.embedding = nn.Embedding(vocab_size, embed_dim,
                                       padding_idx=pad_idx)
         # batch_first=True  →  input/output tensors are (B, T, *)
-        self.rnn       = nn.LSTM(embed_dim, hidden_dim, num_layers, batch_first=True)
+        self.LSTM       = nn.LSTM(embed_dim, hidden_dim, num_layers, batch_first=True)
+        self.dropout   = nn.Dropout(p=0.3)
         self.fc        = nn.Linear(hidden_dim, num_classes)
 
-    def forward(self,
-                input_ids: torch.Tensor,
-                lengths: torch.Tensor) -> torch.Tensor:
-        """
-        Parameters
-        ----------
-        input_ids : LongTensor (B, T)   — padded token indices
-        lengths   : LongTensor (B,)     — real (non-PAD) length of each sentence
+    def forward(self, input_ids, lengths):
+        emb = self.embedding(input_ids)                          # (B, T, D)
 
-        Returns
-        -------
-        FloatTensor (B, num_classes) — raw class scores
-        """
-        # encoded_token * v. So that (B, T) → (B, T, D)
-        emb = self.embedding(input_ids)
-
-        # use lengths of each sentence, to ignore zeroes when training
         packed = pack_padded_sequence(emb, lengths,
                                       batch_first=True,
                                       enforce_sorted=False)
+        # masked mean pooling
+        # packed_out, _ = self.rnn(packed)                         # keep outputs
+        # output, _ = pad_packed_sequence(packed_out,
+        #                                 batch_first=True)        # (B, T, H)
+        # # output = emb
+        # T_out = output.size(1)
+        # attention_mask = (input_ids[:, :T_out] != self.pad_idx)  # (B, T)
+        # pooled = masked_mean_pool(output, attention_mask)
+        # pooled = self.dropout(pooled)
+        # return self.fc(pooled)
 
-        # ignore all packed hidden states, we only care about the last hidden layer
-        _, hidden = self.rnn(packed)
-
-        # 5. Take the last layer's hidden state: (num_layers, B, H) → (B, H)
+        _, hidden = self.LSTM(packed)
         hidden = hidden[-1]
-
-        # 6. Linear classifier  (B, H) → (B, num_classes)
+        hidden = self.dropout(hidden)   # ← add this
         return self.fc(hidden)
+
+
     
 def train(model, padded_batch, lengths, targets,
           val_ids=None, val_lengths=None, val_targets=None,
-          epochs=60, lr=1e-3, use_lengths=True, log_interval=10):
+          epochs=60, lr=1e-3, batch_size= 64, use_lengths=True, log_interval=10):
     """
     Minimal training loop for demonstration purposes.
 
@@ -103,40 +97,50 @@ def train(model, padded_batch, lengths, targets,
     val_targets  : LongTensor (Bv,)    or None
     use_lengths  : set True for TextRNN (passes lengths to forward)
     """
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    train_ds = TensorDataset(padded_batch, lengths, targets)
+    train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
+
+    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-5)
     criterion = nn.CrossEntropyLoss()
     plot_data = torch.zeros(4, epochs)
     has_val = val_ids is not None and val_targets is not None
 
     for epoch in range(1, epochs + 1):
         model.train()
-        optimizer.zero_grad()
+        running_loss, running_correct, running_total = 0.0, 0, 0
 
-        logits = model(padded_batch, lengths) if use_lengths else model(padded_batch)
-        loss = criterion(logits, targets)
-        loss.backward()
-        optimizer.step()
+        for x_batch, len_batch, y_batch in train_dl:
+            optimizer.zero_grad()
+            logits = model(x_batch, len_batch) if use_lengths else model(x_batch)
+            loss = criterion(logits[0, :, :], y_batch)
+            loss.backward()
+            optimizer.step()
+
+            running_loss    += loss.item() * y_batch.size(0)
+            running_correct += (logits[0, :, :].argmax(1) == y_batch).sum().item()
+            running_total   += y_batch.size(0)
+
+        train_loss = running_loss / running_total
+        train_acc  = running_correct / running_total
 
         if epoch % log_interval == 0:
-            train_acc = (logits.argmax(dim=1) == targets).float().mean().item()
-
             val_acc = float("nan")
             if has_val:
                 model.eval()
                 with torch.no_grad():
                     val_logits = model(val_ids, val_lengths) if use_lengths else model(val_ids)
-                    val_acc = (val_logits.argmax(dim=1) == val_targets).float().mean().item()
+                    val_acc = (val_logits[0,:,:].argmax(dim=1) == val_targets).float().mean().item()
 
-            print(f"  Epoch {epoch:3d} | loss {loss.item():.4f} | "
+            print(f"  Epoch {epoch:3d} | loss {train_loss:.4f} | "
                   f"train acc {train_acc:.2f} | val acc {val_acc:.2f}")
-            plot_data[:, epoch-1] = torch.tensor([epoch, loss.item(), train_acc, val_acc])
+            plot_data[:, epoch-1] = torch.tensor([epoch, train_loss, train_acc, val_acc])
 
     return plot_data
 
 def get_model(vocab, embed_dim, hidden_dim, num_layers):
     num_classes = 6
-    rnn_model = TextLSTM(len(vocab), embed_dim=embed_dim, hidden_dim=hidden_dim, num_layers=num_layers, num_classes=num_classes)
-    return rnn_model
+    lstm_model = TextLSTM(len(vocab), embed_dim=embed_dim, hidden_dim=hidden_dim, num_layers=num_layers, num_classes=num_classes)
+    return lstm_model
 
 def predict(model, sentence: str, vocab: dl.Vocabulary,
             use_lengths: bool = False) -> str:
@@ -202,7 +206,7 @@ if __name__ == '__main__':
     num_classes = 6      # works regardless of label values
     
     print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
-    rnn_model = TextLSTM(len(vocab), EMBED_DIM, hidden_dim=32, num_layers=NUM_LAYERS, num_classes=num_classes)
-    data = train(rnn_model, encoded_train_corpus, lengths, targets, use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
+    lstm_model = TextLSTM(len(vocab), EMBED_DIM, hidden_dim=32, num_layers=NUM_LAYERS, num_classes=num_classes)
+    data = train(lstm_model, encoded_train_corpus, lengths, targets, use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
     
 
