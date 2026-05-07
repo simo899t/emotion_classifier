@@ -60,6 +60,7 @@ class TextRNN(nn.Module):
         packed = pack_padded_sequence(emb, lengths,
                                       batch_first=True,
                                       enforce_sorted=False)
+        
         # masked mean pooling
         # packed_out, _ = self.rnn(packed)                         # keep outputs
         # output, _ = pad_packed_sequence(packed_out,
@@ -70,7 +71,7 @@ class TextRNN(nn.Module):
         # pooled = masked_mean_pool(output, attention_mask)
         # pooled = self.dropout(pooled)
         # return self.fc(pooled)
-
+        
         _, hidden = self.rnn(packed)
         hidden = hidden[-1]
         hidden = self.dropout(hidden)   # ← add this

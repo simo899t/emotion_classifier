@@ -1,7 +1,7 @@
 import dataloader as dl
 import rnn
 import lstm
-import model_2 as m2
+import transformer as tf
 import pandas as pd
 import matplotlib.pyplot as plt
 import torch
@@ -38,24 +38,31 @@ if __name__ == "__main__":
     NUM_LAYERS = 1
     LEARNING_RATE = 1e-3
     EPOCHS = 20
+    BATCH_SIZE = 32
+    D_MODEL = 64
+    D_KEYS = 32
+    N_HEAD = 4
+    MLP_FACTOR = 2
 
-    rnn_model = rnn.get_model(vocab, EMBED_DIM, HIDDEN_DIM, NUM_LAYERS)
-    print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
-    T1 = rnn.train(rnn_model, encoded_train_corpus, train_lengths, train_targets,
-                  val_ids=encoded_val, val_lengths=val_lengths, val_targets=val_targets,
-                  use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
-
+    # rnn_model = rnn.get_model(vocab, EMBED_DIM, HIDDEN_DIM, NUM_LAYERS)
+    # print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
+    # T1 = rnn.train(rnn_model, encoded_train_corpus, train_lengths, train_targets,
+    #               val_ids=encoded_val, val_lengths=val_lengths, val_targets=val_targets,
+    #               use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, batch_size=BATCH_SIZE, log_interval=1)
+    #
     # lstm_model = lstm.get_model(vocab, EMBED_DIM, HIDDEN_DIM,NUM_LAYERS)
     # print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
     # T2 = lstm.train(lstm_model, encoded_train_corpus, train_lengths, train_targets,
     #               val_ids=encoded_val, val_lengths=val_lengths, val_targets=val_targets,
     #               use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
-    # 
-    # lstm_model = lstm.get_model(vocab, EMBED_DIM, HIDDEN_DIM,NUM_LAYERS)
-    # print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
-    # T3 = lstm.train(lstm_model, encoded_train_corpus, train_lengths, train_targets,
-    #               val_ids=encoded_val, val_lengths=val_lengths, val_targets=val_targets,
-    #               use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
+    
+    tf_model = tf.get_model(vocab, D_MODEL, D_KEYS, N_HEAD, MLP_FACTOR, NUM_LAYERS)
+    print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
+    T3 = tf.train(tf_model, encoded_train_corpus, train_targets,
+              val_ids=encoded_val, val_targets=val_targets,
+              epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
+
+
 
     # plot(T2, T3)
 
