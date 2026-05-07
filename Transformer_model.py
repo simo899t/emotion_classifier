@@ -74,10 +74,10 @@ class TransformerBlock(nn.Module):
         return x
 
 class TransformerClassifier(nn.Module):
-    def __init__(self, vocab_size, embed_dim, n_classes, d_model=256, d_key=64, n_heads=4, mlp_factor=4, n_layers=2, pad_idx : int = 0):
+    def __init__(self, vocab_size, n_classes, embed, d_model=256, d_key=64, n_heads=4, mlp_factor=4, n_layers=2, pad_idx : int = 0):
         super().__init__()
         self.pad_idx = pad_idx
-        self.token_embedding = nn.Embedding(vocab_size, embed_dim,padding_idx=pad_idx)
+        self.token_embedding = nn.Embedding(vocab_size, embed, padding_idx=pad_idx)
 
         self.transformer_model = nn.Sequential(*[TransformerBlock(d_model, d_key, n_heads, mlp_factor) for _ in range(n_layers)])
         self.final_layer_norm = nn.LayerNorm(d_model)
@@ -93,66 +93,102 @@ class TransformerClassifier(nn.Module):
 
 # --------- #
 
-if __name__ == '__main__':
-
-    train_inputs, val_inputs, test_inputs, train_labels, val_labels, test_labels = dl.load_data()
-
-    vocab = dl.Vocabulary()
-    vocab.build_vocabulary(train_inputs)
-    encoded_train_corpus = vocab.encode(train_inputs)
-    encoded_val_corpus = vocab.encode(val_inputs)
-
-    # decoded = vocab.decode(vocab.encode())
-
-    # Set seeds
-    torch.manual_seed(0)
-
-    # device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
-    # print(f'Using device: {device}')
-
-    # Create the model
-
-    # Validation accuracy: 98.50000143051147%
 
 
+def train(model, padded_batch, targets, epochs=60, lr=1e-3, log_interval = 10):
+    """
+    Minimal training loop for demonstration purposes.
 
-    
-    EMBED_DIM = 64
-    HIDDEN_DIM = 64
-    NUM_LAYERS = 2
-    LEARNING_RATE = 1e-2
-    EPOCHS = 100
-    NUM_CLASS = 6 
-    D_MODEL = 256
-    D_KEYS = 64
-    N_HEAD = 4
-    MLP_FACTOR = 4 
+    Uses Adam + CrossEntropyLoss on the full batch (no train/val split).
+    Reports loss and accuracy every log_interval epochs.
 
-    model = TransformerClassifier(len(vocab),EMBED_DIM,NUM_CLASS,D_MODEL,D_KEYS,N_HEAD,MLP_FACTOR,NUM_LAYERS)
-
-
-    n_epochs = 100
-
-    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    Parameters
+    ----------
+    model        : Transformer
+    padded_batch : LongTensor (B × T)
+    lengths      : LongTensor (B × 1)
+    targets      : LongTensor (B × 1) (0, 1, 2, 3, 4, 5)
+    """
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
+    plot_data = torch.zeros(3, epochs)
 
-    for epoch in range(n_epochs):
+
+    for epoch in range(1, epochs + 1):
         model.train()
         optimizer.zero_grad()
-        y_pred = model(encoded_train_corpus)
-        loss = criterion(y_pred, train_labels)
+
+        # Forward pass
+        logits = model(padded_batch) 
+
+        loss = criterion(logits, targets)
         loss.backward()
         optimizer.step()
-        print(f'Epoch {epoch+1}, Loss: {loss.item()}')
-    # Check the validation accuracy
-    with torch.no_grad():
-        model.eval()
-        y_pred = model(encoded_val_corpus)
-        acc = (torch.argmax(y_pred, dim=1) == val_labels).float().mean()
-        print(f'Validation accuracy: {100*acc.item()}%')
 
-    # Number of parameters
-    print(f'Number of parameters: {sum(p.numel() for p in model.parameters())}')
+        if epoch % log_interval == 0:
+            preds = logits.argmax(dim=1)
+            acc   = (preds == targets).float().mean().item()
+            print(f"  Epoch {epoch:3d} | loss {loss.item():.4f} | acc {acc:.2f}")
+            plot_data[:, epoch-1] = torch.tensor([epoch, loss, acc])
+
+    return plot_data
+
+def get_model(vocab,NUM_CLASS, D_MODEL, D_KEYS,N_HEAD,MLP_FACTOR,NUM_LAYERS):
+    transformer_model = TransformerClassifier(len(vocab),NUM_CLASS,D_MODEL,D_KEYS,N_HEAD,MLP_FACTOR,NUM_LAYERS)
+    return transformer_model
 
 
+
+
+if __name__ == '__main__':
+    train_inputs, val_inputs, test_inputs, train_labels, val_labels, test_labels = dl.load_data()
+    vocab = dl.Vocabulary()
+    vocab.build_vocabulary(test_inputs)
+    encoded_train_corpus = vocab.encode(train_inputs)
+
+    #print("\n" + "=" * 60)
+    #print("PART 2 — Vocabulary")
+    #print("=" * 60)
+    #print(f"Vocabulary size : {len(vocab)}")
+    #print(f"<PAD> index     : {vocab.token2idx['<PAD>']} (should be 0)")
+    #print(f"<UNC> index     : {vocab.token2idx['<UNC>']} (should be 1)")
+    #print(f"Encoded sent[0] : {encoded_train_corpus}")
+    #print(f"Decoded back    : {vocab.decode(encoded_train_corpus)}")
+    
+    # Test OOV handling
+    #print(f"Unknown token   : {vocab.encode(['notaword'])} (should be [1])")
+    #print(f"\nPadded batch shape: {encoded_train_corpus.shape}")
+    #print(encoded_train_corpus)
+
+    #EMED_DIM = D_models
+    EMBED_DIM = 64
+    NUM_LAYERS = 4
+    LEARNING_RATE = 1e-2
+    EPOCHS = 10
+    NUM_CLASS = 6
+    D_MODEL = 64
+    D_KEYS = 32
+    N_HEAD = 4
+    MLP_FACTOR = 2
+
+    embedding_layer = build_embedding_layer(len(vocab), EMBED_DIM)
+
+    # <PAD> embedding must be all zeros
+    pad_emb = embedding_layer(torch.tensor([0]))
+    print(f"<PAD> embedding all-zero: {pad_emb.abs().sum().item() == 0.0}")
+    
+    # Embed the whole padded batch
+    embedded = embedding_layer(encoded_train_corpus)   # (B × T × D)
+    print(f"Embedded batch shape    : {embedded.shape}  (B=6, T=6, D={EMBED_DIM})")
+
+    # Compute real sequence lengths (count of non-PAD tokens per row)
+    lengths = (encoded_train_corpus != 0).sum(dim=1)   # LongTensor (B × 1)
+
+    targets = torch.tensor(train_labels)
+    num_classes = 6      # works regardless of label values
+    
+    print(f"\n--- Training Transfomer Netork with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
+    transfomer_model =  TransformerClassifier(len(vocab),NUM_CLASS,EMBED_DIM, D_MODEL,D_KEYS,N_HEAD,MLP_FACTOR,NUM_LAYERS)
+    data = train(transfomer_model, encoded_train_corpus, targets, epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
+    
 
