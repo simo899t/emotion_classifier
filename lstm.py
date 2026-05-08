@@ -135,7 +135,7 @@ def train(model, padded_batch, lengths, targets,
                   f"train acc {train_acc:.2f} | val acc {val_acc:.2f}")
             plot_data[:, epoch-1] = torch.tensor([epoch, train_loss, train_acc, val_acc])
 
-    return plot_data
+    return plot_data, model
 
 def get_model(vocab, embed_dim, hidden_dim, num_layers):
     num_classes = 6
