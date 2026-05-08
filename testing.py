@@ -46,12 +46,12 @@ if __name__ == "__main__":
     N_HEAD = 4
     MLP_FACTOR = 2
 
-    # rnn_model = rnn.get_model(vocab, EMBED_DIM, HIDDEN_DIM, NUM_LAYERS)
-    # print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
-    # T1, _ = rnn.train(rnn_model, encoded_train_corpus, train_lengths, train_targets,
-    #               val_ids=encoded_val, val_lengths=val_lengths, val_targets=val_targets,
-    #               use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, batch_size=BATCH_SIZE, log_interval=1)
-    # 
+    rnn_model = rnn.get_model(vocab, EMBED_DIM, HIDDEN_DIM, NUM_LAYERS)
+    print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
+    T1, _ = rnn.train(rnn_model, encoded_train_corpus, train_lengths, train_targets,
+                  val_ids=encoded_val, val_lengths=val_lengths, val_targets=val_targets,
+                  use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, batch_size=BATCH_SIZE, log_interval=1)
+    
     lstm_model = lstm.get_model(vocab, EMBED_DIM, HIDDEN_DIM,NUM_LAYERS)
     print(f"\n--- Training TextLSTM with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
     T2, _ = lstm.train(lstm_model, encoded_train_corpus, train_lengths, train_targets,

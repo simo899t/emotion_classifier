@@ -81,7 +81,7 @@ class TextRNN(nn.Module):
     
 def train(model, padded_batch, lengths, targets,
           val_ids=None, val_lengths=None, val_targets=None,
-          epochs=60, lr=1e-3, batch_size= 64, use_lengths=True, log_interval=10):
+          epochs=60, lr=1e-3, batch_size= 64, use_lengths=True, log_interval=1):
     """
     Minimal training loop for demonstration purposes.
 
