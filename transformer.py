@@ -2,6 +2,7 @@ import dataloader as dl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.data import TensorDataset, DataLoader
 from math import sqrt
 
 
@@ -74,10 +75,10 @@ class TransformerBlock(nn.Module):
         return x
 
 class TransformerClassifier(nn.Module):
-    def __init__(self, vocab_size, n_classes, embed, d_model=256, d_key=64, n_heads=4, mlp_factor=4, n_layers=2, pad_idx : int = 0):
+    def __init__(self, vocab_size, n_classes, d_model=256, d_key=64, n_heads=4, mlp_factor=4, n_layers=2, pad_idx : int = 0):
         super().__init__()
         self.pad_idx = pad_idx
-        self.token_embedding = nn.Embedding(vocab_size, embed, padding_idx=pad_idx)
+        self.token_embedding = nn.Embedding(vocab_size, d_model, padding_idx=pad_idx)
 
         self.transformer_model = nn.Sequential(*[TransformerBlock(d_model, d_key, n_heads, mlp_factor) for _ in range(n_layers)])
         self.final_layer_norm = nn.LayerNorm(d_model)
@@ -95,7 +96,9 @@ class TransformerClassifier(nn.Module):
 
 
 
-def train(model, padded_batch, targets, epochs=60, lr=1e-3, log_interval = 10):
+def train(model, padded_batch, targets, 
+          val_ids=None, val_targets=None,
+          epochs=60, lr=1e-3, batch_size=64, log_interval = 10):
     """
     Minimal training loop for demonstration purposes.
 
@@ -106,35 +109,54 @@ def train(model, padded_batch, targets, epochs=60, lr=1e-3, log_interval = 10):
     ----------
     model        : Transformer
     padded_batch : LongTensor (B × T)
-    lengths      : LongTensor (B × 1)
     targets      : LongTensor (B × 1) (0, 1, 2, 3, 4, 5)
     """
+
+    train_ds = TensorDataset(padded_batch, targets)
+    train_dl = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
+
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
-    plot_data = torch.zeros(3, epochs)
+    plot_data = torch.zeros(4, epochs)
+    has_val = val_ids is not None and val_targets is not None
 
 
     for epoch in range(1, epochs + 1):
         model.train()
-        optimizer.zero_grad()
+        running_loss, running_correct, running_total = 0.0, 0, 0
 
-        # Forward pass
-        logits = model(padded_batch) 
+        for x_batch, y_batch in train_dl:
+            optimizer.zero_grad()
+            logits = model(x_batch)
+            loss = criterion(logits, y_batch)
+            loss.backward()
+            optimizer.step()
 
-        loss = criterion(logits, targets)
-        loss.backward()
-        optimizer.step()
+            running_loss    += loss.item() * y_batch.size(0)
+            running_correct += (logits.argmax(1) == y_batch).sum().item()
+            running_total   += y_batch.size(0)
+
+        train_loss = running_loss / running_total
+        train_acc  = running_correct / running_total
 
         if epoch % log_interval == 0:
-            preds = logits.argmax(dim=1)
-            acc   = (preds == targets).float().mean().item()
-            print(f"  Epoch {epoch:3d} | loss {loss.item():.4f} | acc {acc:.2f}")
-            plot_data[:, epoch-1] = torch.tensor([epoch, loss, acc])
+            val_acc = float("nan")
+            if has_val:
+                model.eval()
+                with torch.no_grad():
+                    val_logits = model(val_ids)
+                    val_acc = (val_logits.argmax(dim=1) == val_targets).float().mean().item()
+
+            print(f"  Epoch {epoch:3d} | loss {train_loss:.4f} | "
+                  f"train acc {train_acc:.2f} | val acc {val_acc:.2f}")
+            plot_data[:, epoch-1] = torch.tensor([epoch, train_loss, train_acc, val_acc])
 
     return plot_data
 
-def get_model(vocab,NUM_CLASS, D_MODEL, D_KEYS,N_HEAD,MLP_FACTOR,NUM_LAYERS):
-    transformer_model = TransformerClassifier(len(vocab),NUM_CLASS,D_MODEL,D_KEYS,N_HEAD,MLP_FACTOR,NUM_LAYERS)
+
+def get_model(vocab, D_MODEL, D_KEYS,N_HEAD,MLP_FACTOR,NUM_LAYERS):
+    num_classes = 6
+    transformer_model = TransformerClassifier(len(vocab),num_classes,D_MODEL,D_KEYS,N_HEAD,MLP_FACTOR,NUM_LAYERS)
     return transformer_model
 
 
@@ -143,7 +165,7 @@ def get_model(vocab,NUM_CLASS, D_MODEL, D_KEYS,N_HEAD,MLP_FACTOR,NUM_LAYERS):
 if __name__ == '__main__':
     train_inputs, val_inputs, test_inputs, train_labels, val_labels, test_labels = dl.load_data()
     vocab = dl.Vocabulary()
-    vocab.build_vocabulary(test_inputs)
+    vocab.build_vocabulary(train_inputs)
     encoded_train_corpus = vocab.encode(train_inputs)
 
     #print("\n" + "=" * 60)
@@ -188,7 +210,7 @@ if __name__ == '__main__':
     num_classes = 6      # works regardless of label values
     
     print(f"\n--- Training Transfomer Netork with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
-    transfomer_model =  TransformerClassifier(len(vocab),NUM_CLASS,EMBED_DIM, D_MODEL,D_KEYS,N_HEAD,MLP_FACTOR,NUM_LAYERS)
+    transfomer_model =  TransformerClassifier(len(vocab),num_classes,EMBED_DIM, D_MODEL,D_KEYS,N_HEAD,MLP_FACTOR,NUM_LAYERS)
     data = train(transfomer_model, encoded_train_corpus, targets, epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
     
 
