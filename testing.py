@@ -46,21 +46,21 @@ if __name__ == "__main__":
     N_HEAD = 4
     MLP_FACTOR = 2
 
-    rnn_model = rnn.get_model(vocab, EMBED_DIM, HIDDEN_DIM, NUM_LAYERS)
-    print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
-    T1 = rnn.train(rnn_model, encoded_train_corpus, train_lengths, train_targets,
-                  val_ids=encoded_val, val_lengths=val_lengths, val_targets=val_targets,
-                  use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, batch_size=BATCH_SIZE, log_interval=1)
-    # 
-    # lstm_model = lstm.get_model(vocab, EMBED_DIM, HIDDEN_DIM,NUM_LAYERS)
-    # print(f"\n--- Training TextLSTM with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
-    # T2 = lstm.train(lstm_model, encoded_train_corpus, train_lengths, train_targets,
+    # rnn_model = rnn.get_model(vocab, EMBED_DIM, HIDDEN_DIM, NUM_LAYERS)
+    # print(f"\n--- Training TextRNN with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
+    # T1, _ = rnn.train(rnn_model, encoded_train_corpus, train_lengths, train_targets,
     #               val_ids=encoded_val, val_lengths=val_lengths, val_targets=val_targets,
-    #               use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
+    #               use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, batch_size=BATCH_SIZE, log_interval=1)
+    # 
+    lstm_model = lstm.get_model(vocab, EMBED_DIM, HIDDEN_DIM,NUM_LAYERS)
+    print(f"\n--- Training TextLSTM with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
+    T2, _ = lstm.train(lstm_model, encoded_train_corpus, train_lengths, train_targets,
+                  val_ids=encoded_val, val_lengths=val_lengths, val_targets=val_targets,
+                  use_lengths=True, epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
     # 
     # tf_model = tf.get_model(vocab, D_MODEL, D_KEYS, N_HEAD, MLP_FACTOR, NUM_LAYERS)
     # print(f"\n--- Training Transformer with lr: {LEARNING_RATE} on {EPOCHS} epocs ---")
-    # T3 = tf.train(tf_model, encoded_train_corpus, train_targets,
+    # T3, _ = tf.train(tf_model, encoded_train_corpus, train_targets,
     #           val_ids=encoded_val, val_targets=val_targets,
     #           epochs=EPOCHS, lr=LEARNING_RATE, log_interval=1)
     # plot(T1, T2, T3)
@@ -101,20 +101,20 @@ if __name__ == "__main__":
                  "i am terrified of what comes next",
                  "Nikolaj is the ugliest most stupid and annoying person to walk this earth"]
 
-    print(f"\n--- Testing TextRNN ---")
-    for sent in test2:
-        rnn_pred = rnn.predict(rnn_model, sent, vocab, use_lengths=False)
-        print(f"  \"{sent}\" → {rnn_pred}")
+    # print(f"\n--- Testing TextRNN ---")
+    # for sent in test2:
+    #     rnn_pred = rnn.predict(rnn_model, sent, vocab, use_lengths=False)
+    #     print(f"  \"{sent}\" → {rnn_pred}")
 
     print(f"\n--- Testing TextLSTM ---")
-    for sent in order_test_pairs:
+    for sent in test2:
         lstm_pred = rnn.predict(lstm_model, sent, vocab, use_lengths=False)
-        print(f"  \"{sent}\" → {rnn_pred}")
+        print(f"  \"{sent}\" → {lstm_pred}")
 
     # print(f"\n--- Testing TextTRANSFORMER ---")
-    # for sent in order_test_pairs:
+    # for sent in test2:
     #     tf_pred = rnn.predict(tf_model, sent, vocab, use_lengths=False)
-    #     print(f"  \"{sent}\" → {rnn_pred}")
+    #     print(f"  \"{sent}\" → {tf_pred}")
 
 
 

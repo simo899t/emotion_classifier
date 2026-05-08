@@ -75,7 +75,7 @@ class TextRNN(nn.Module):
         _, hidden = self.rnn(packed)
         hidden = hidden[-1]
         hidden = self.dropout(hidden)   # ← add this
-        return self.fc(hidden)
+        return self.fc(hidden), hidden
 
 
     
@@ -113,7 +113,7 @@ def train(model, padded_batch, lengths, targets,
 
         for x_batch, len_batch, y_batch in train_dl:
             optimizer.zero_grad()
-            logits = model(x_batch, len_batch) if use_lengths else model(x_batch)
+            logits, _ = model(x_batch, len_batch) if use_lengths else model(x_batch)
             loss = criterion(logits, y_batch)
             loss.backward()
             optimizer.step()
@@ -130,14 +130,14 @@ def train(model, padded_batch, lengths, targets,
             if has_val:
                 model.eval()
                 with torch.no_grad():
-                    val_logits = model(val_ids, val_lengths) if use_lengths else model(val_ids)
+                    val_logits, _ = model(val_ids, val_lengths) if use_lengths else model(val_ids)
                     val_acc = (val_logits.argmax(dim=1) == val_targets).float().mean().item()
 
             print(f"  Epoch {epoch:3d} | loss {train_loss:.4f} | "
                   f"train acc {train_acc:.2f} | val acc {val_acc:.2f}")
             plot_data[:, epoch-1] = torch.tensor([epoch, train_loss, train_acc, val_acc])
 
-    return plot_data
+    return plot_data, model
 
 def get_model(vocab, embed_dim, hidden_dim, num_layers):
     num_classes = 6
