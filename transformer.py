@@ -79,7 +79,6 @@ class TransformerClassifier(nn.Module):
         super().__init__()
         self.pad_idx = pad_idx
         self.token_embedding = nn.Embedding(vocab_size, d_model, padding_idx=pad_idx)
-
         self.transformer_model = nn.Sequential(*[TransformerBlock(d_model, d_key, n_heads, mlp_factor) for _ in range(n_layers)])
         self.final_layer_norm = nn.LayerNorm(d_model)
         self.classifier = nn.Sequential(nn.Linear(d_model, d_model), nn.SiLU(), nn.Linear(d_model, n_classes))
