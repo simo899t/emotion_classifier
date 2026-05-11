@@ -35,6 +35,7 @@ def train_probe(model, probe, padded_batch, lengths, targets, epochs, lr, batch_
             with torch.no_grad():
                 _, hidden_layers = trained_rnn(x_batch, len_batch)
 
+            print(hidden_layers.shape)
             optimizer.zero_grad()
             outputs = probe(hidden_layers)
             loss = criterion(outputs, y_batch.unsqueeze(1))
@@ -63,7 +64,7 @@ if __name__ == "__main__":
     HIDDEN_DIM = 64
     NUM_LAYERS = 2
     LEARNING_RATE = 1e-3
-    EPOCHS = 10
+    EPOCHS = 1
     PROBE_EPOCHS = 10
     BATCH_SIZE = 32
     

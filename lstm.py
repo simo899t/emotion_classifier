@@ -73,13 +73,13 @@ class TextLSTM(nn.Module):
         _, hidden = self.LSTM(packed)
         hidden = hidden[-1]
         hidden = self.dropout(hidden)   # ← add this
-        return self.fc(hidden)
+        return self.fc(hidden), hidden
 
 
     
 def train(model, padded_batch, lengths, targets,
           val_ids=None, val_lengths=None, val_targets=None,
-          epochs=60, lr=1e-3, batch_size= 64, use_lengths=True, log_interval=10):
+          epochs=60, lr=1e-3, batch_size= 64, use_lengths=True, log_interval=1):
     """
     Minimal training loop for demonstration purposes.
 
@@ -131,7 +131,7 @@ def train(model, padded_batch, lengths, targets,
                     val_logits = model(val_ids, val_lengths) if use_lengths else model(val_ids)
                     val_acc = (val_logits[0,:,:].argmax(dim=1) == val_targets).float().mean().item()
 
-            print(f"  Epoch {epoch:3d} | loss {train_loss:.4f} | "
+            print(f"Epoch {epoch:3d} | loss {train_loss:.4f} | "
                   f"train acc {train_acc:.2f} | val acc {val_acc:.2f}")
             plot_data[:, epoch-1] = torch.tensor([epoch, train_loss, train_acc, val_acc])
 
