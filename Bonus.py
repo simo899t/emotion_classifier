@@ -1,27 +1,19 @@
-from datasets import Dataset
+
 import dataloader as dl
-import torch
-import torch.nn as nn
-import torch.optim as optim
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from torch.utils.data import TensorDataset, DataLoader
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 from transformers import (
-    BertTokenizer,
+    BertTokenizer, DistilBertTokenizer, 
     BertForSequenceClassification,
     TrainingArguments,
     Trainer,
     DataCollatorWithPadding
 )
-import torch as nn 
+import torch 
 
-
-
-import torch
 import torch.nn as nn
-from transformers import BertTokenizer, BertModel
+from transformers import BertTokenizer, BertModel, DistilBertModel
 
 # Bert tokenizer 
 
@@ -34,29 +26,30 @@ def freeze_bert(bert):
 class BertClassifier(nn.Module):
     def __init__(self, d_features, n_classes):
         super().__init__()
-        self.bert = BertModel.from_pretrained('bert-base-uncased')
+        self.bert =self.bert = DistilBertModel.from_pretrained('distilbert-base-uncased')
         freeze_bert(self.bert)
-        self.fc1 = nn.Linear(d_features, 256)
+        self.fc1 = nn.Linear(768, 256)
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(p=0.3)
         self.fc2 = nn.Linear(256, n_classes)
 
     def forward(self, x, mask):
         output = self.bert(x, attention_mask=mask)
-        pooled_output = output.pooler_output
-        x = self.fc1(pooled_output)
+        #pooled_output = output.pooler_output
+        cls_output = output.last_hidden_state[:, 0, :]
+        x = self.fc1(cls_output)
         x = self.relu(x)
         x = self.dropout(x)
         return self.fc2(x)
 
 
 
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
 
 
 def train(model, padded_batch, targets, attention_mask ,use_lengths = True,
           val_ids=None, val_mask = None, val_targets=None,
-          epochs=60, lr=1e-3, batch_size=32, log_interval = 10):
+          epochs=60, lr=1e-3, batch_size=4, log_interval = 10):
     """
     Minimal training loop for demonstration purposes.
 
@@ -123,13 +116,13 @@ def get_model(n_features, n_classes):
 
 N_FEATURES = 768
 NUM_LAYERS = 4
-LEARNING_RATE = 1e-2
+LEARNING_RATE = 3e-5
 EPOCHS = 3
 NUM_CLASS = 6
 
 if __name__ == '__main__':
     # Bert tokenizer 
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+    tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
 
     train_inputs, val_inputs, test_inputs, train_labels, val_labels, test_labels = dl.load_data()
     encoded_train_corpus = tokenizer(train_inputs,padding=True, truncation=True, 
